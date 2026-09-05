@@ -111,7 +111,16 @@ the next boot. The device remained `ro.boot.verifiedbootstate=green`,
 `ro.boot.flash.locked=1`, and `ro.debuggable=0`. This is a hardware crash or
 forced reboot during the writer stage, not a successful port.
 
-The exact remaining blockers are validation of the rebuilt MCAST artifact and
+The rebuilt MCAST artifact was then tested once. It reported
+`stack_writer=mcast`, `reclaim=legacy`, `fops=direct`, and `pipe=after-fops`,
+reached the same `writer-enter` stage, and rebooted again. Therefore changing
+the writer from pselect to MCAST did not establish a safe runtime chain. The
+The M356B profile is not hardware validated and must not be retested without
+the new synchronization candidate, whose consumer is armed before MCAST
+`setsockopt()`, and further static evidence for the MCAST/PI and reclaim stages.
+
+The exact remaining blockers are validation of the rebuilt MCAST artifact with
+the corrected M356B-specific waiter offset `0x28` and
 runtime-dependent reclaim parameters. The previous pselect artifact must not
 be retested. No flashing, unlocking, or
 persistent modification was performed.

@@ -1248,11 +1248,12 @@ static void slide_mcast_stack_copy(void) {
 
   slide_reset_consume_state();
 
+  /* The consumer must be armed before the kernel copies this stack stamp. */
+  atomic_store(&slide_consume_go, 1);
   errno = 0;
   int ret = setsockopt(fd, SLIDE_MCAST_LEVEL, SLIDE_MCAST_OPTION,
                        stamp, sizeof(stamp));
   int saved_errno = errno;
-  atomic_store(&slide_consume_go, 1);
   while (!atomic_load(&slide_consume_stop))
     __asm__ volatile("yield" ::: "memory");
   atomic_store(&slide_consume_go, 0);

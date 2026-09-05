@@ -12,12 +12,12 @@ ANDROID_NDK_HOME=/tmp/android-ndk/android-ndk-r27d \
   OUTDIR=/tmp/m356b-build-release
 ```
 
-The app payload is exactly 104128 bytes. This build uses the MCAST stack writer
-and the closed fops/pipe gates. Verify its SHA-256 before copying it to a
-phone:
+The app payload is exactly 104128 bytes. This build uses the MCAST stack writer,
+the closed fops/pipe gates, and MCAST waiter offset `0x28`. Verify its SHA-256
+before copying it to a phone:
 
 ```text
-fa9da64d3d87da70b4d69eae017ac5bc474fafd164865a729dde9be9c676f2e8
+cd6a760dc09af2ed643a60d9d3ca71d55d8a543ff1bff7711933e9a473e5bd5c
 ```
 
 The root helper in this directory was built from the same target profile. It is
