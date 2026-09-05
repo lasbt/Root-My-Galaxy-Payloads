@@ -12,13 +12,20 @@ ANDROID_NDK_HOME=/tmp/android-ndk/android-ndk-r27d \
   OUTDIR=/tmp/m356b-build-release
 ```
 
-The app payload is exactly 104128 bytes. This build uses the MCAST stack writer,
-the closed fops/pipe gates, and MCAST waiter offset `0x28`. Verify its SHA-256
-before copying it to a phone:
+The app payload is exactly 104128 bytes. This build uses the physical-P0-oracle
+KASLR route (`APP_PHYS_P0_ORACLE`, the macro all other targets and the
+P0_ORACLE_* constants expect; the previous header used the dead `PHYS_P0_ORACLE`
+that no source reads) plus the MCAST stack writer, the closed fops/pipe gates,
+and MCAST waiter offset `0x28`. First hardware test of this corrected route.
+Verify its SHA-256 before copying it to a phone:
 
 ```text
-cd6a760dc09af2ed643a60d9d3ca71d55d8a543ff1bff7711933e9a473e5bd5c
+7e76bb37ea26810ee35a02a9d12d0fe34c8b6623b6fe0e46da7dbd729fe44a1d
 ```
+
+The previous MCAST + fingerprint-KASLR candidate (`cd6a760d…`) reached
+`writer-enter` and rebooted three times; this candidate is the corrected route,
+still unvalidated on hardware.
 
 The root helper in this directory was built from the same target profile. It is
 also unvalidated on hardware; keep both files from the same build together.
