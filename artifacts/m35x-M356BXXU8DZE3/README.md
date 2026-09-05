@@ -13,19 +13,20 @@ ANDROID_NDK_HOME=/tmp/android-ndk/android-ndk-r27d \
 ```
 
 The app payload is exactly 104128 bytes. This build uses the physical-P0-oracle
-KASLR route (`APP_PHYS_P0_ORACLE`, the macro all other targets and the
-P0_ORACLE_* constants expect; the previous header used the dead `PHYS_P0_ORACLE`
-that no source reads) plus the MCAST stack writer, the closed fops/pipe gates,
-and MCAST waiter offset `0x28`. First hardware test of this corrected route.
-Verify its SHA-256 before copying it to a phone:
+KASLR route (`APP_PHYS_P0_ORACLE`, matching every other target; the previous
+header used the dead `PHYS_P0_ORACLE` macro that no source reads) plus the MCAST
+stack writer, the closed fops/pipe gates, and `MCAST_WAITER_OFF=0x80`
+(re-derived from the M356B vmlinux.elf; the earlier `0x28` under-counted the
+stack frames). Verify its SHA-256 before copying it to a phone:
 
 ```text
-7e76bb37ea26810ee35a02a9d12d0fe34c8b6623b6fe0e46da7dbd729fe44a1d
+1395dfd7316f999c558b7f1017098538b34e3c528ed060fa1137560e98292a46
 ```
 
-The previous MCAST + fingerprint-KASLR candidate (`cd6a760d…`) reached
-`writer-enter` and rebooted three times; this candidate is the corrected route,
-still unvalidated on hardware.
+History: the MCAST + fingerprint-KASLR route (`0x28`) and the corrected
+physical-P0-oracle route (`0x28`) both reached `writer-enter` and rebooted
+(4+ hardware runs). This candidate keeps the corrected route and changes only
+`MCAST_WAITER_OFF` to a re-derived `0x80`. Still unvalidated on hardware.
 
 The root helper in this directory was built from the same target profile. It is
 also unvalidated on hardware; keep both files from the same build together.

