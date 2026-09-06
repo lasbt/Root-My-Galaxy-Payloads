@@ -1,37 +1,54 @@
 # SM-M356B M356BXXU8DZE3 artifact
 
-This artifact was built from the statically derived M356B target profile with
-Android NDK r27d. It has not been validated on physical hardware and is not
-listed in `support/targets-v3.json`.
+This artifact is built from an **inferred** M356B target profile. All
+kernel-dependent values are inferred from peer 5.15.189 targets
+(dm3q-S918BXXSAFZF5 and gts9u-X916BXXS6EZG3), NOT derived from the M356B
+kernel image. The workspace contains no M356B firmware or kernel components.
 
-Build command:
+Build command (requires Android NDK r27d):
 
 ```sh
-ANDROID_NDK_HOME=/tmp/android-ndk/android-ndk-r27d \
+ANDROID_NDK_HOME=/path/to/android-ndk-r27d \
   make release TARGET=m35x-M356BXXU8DZE3 API=35 \
   OUTDIR=/tmp/m356b-build-release
 ```
 
-The app payload is exactly 104128 bytes. This build uses the physical-P0-oracle
-KASLR route (`APP_PHYS_P0_ORACLE`, matching every other target; the previous
-header used the dead `PHYS_P0_ORACLE` macro that no source reads) plus the MCAST
-stack writer, the closed fops/pipe gates, and `MCAST_WAITER_OFF=0x80`
-(re-derived from the M356B vmlinux.elf; the earlier `0x28` under-counted the
-stack frames). Verify its SHA-256 before copying it to a phone:
+The app payload is exactly 104128 bytes. Build configuration:
+
+```text
+stack_writer=mcast reclaim=legacy fops=direct pipe=after-fops
+```
+
+Key values (inferred, NOT verified on M356B hardware):
+
+| Value | Current | Previous | Rationale |
+|-------|---------|----------|----------|
+| MCAST_WAITER_OFF | 0x78 | 0x80 | Both verified 5.15.189 peers (dm3q, gts9u) use 0x78 |
+| P0_KERNEL_PHYS_LOAD | 0x80080000 | 0x80000000 | 0x80000000 = P0_PHYS_OFFSET (zeroes delta, breaks oracle); 0x80080000 matches gts9u |
+| MM_ORDER | 3 | (default) | Explicit, matches dm3q and gts9u |
+| MM_STRUCT_SZ | 0x400 | 0x400 | Matches dm3q (Exynos, 5.15.189); gts9u uses 0x3e0 |
+
+Known uncertainties requiring M356B kernel analysis:
+- P0_KERNEL_PHYS_LOAD: must be confirmed against M356B boot image
+- MM_STRUCT_SZ: may need 0x3e0 if M356B matches gts9u layout
+- All symbol offsets: inferred from A546E PR reference, not derived from M356B
+
+Verify the SHA-256 before copying to a phone. The hash below is from the
+**previous** build (0x80/0x80000000) and will change after rebuild:
 
 ```text
 1395dfd7316f999c558b7f1017098538b34e3c528ed060fa1137560e98292a46
 ```
 
-History: the MCAST + fingerprint-KASLR route (`0x28`) and the corrected
-physical-P0-oracle route (`0x28`) both reached `writer-enter` and rebooted
-(4+ hardware runs). This candidate keeps the corrected route and changes only
-`MCAST_WAITER_OFF` to a re-derived `0x80`. Still unvalidated on hardware.
+History:
+- 0x28 (original): 4+ runs, all rebooted at writer-enter
+- 0x80 (re-derived): same symptom, 4+ runs
+- 0x78 (current, peer-verified): NOT YET TESTED on M356B hardware
 
 The root helper in this directory was built from the same target profile. It is
 also unvalidated on hardware; keep both files from the same build together.
 
-Root helper SHA-256:
+Root helper SHA-256 (previous build):
 
 ```text
 8b7e3285e99cbef5c958d5512105ef0471179484d7a8cb834d23cc882d259fd1
